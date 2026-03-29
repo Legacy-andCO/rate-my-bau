@@ -125,6 +125,47 @@ function timeAgo(ts) {
   return new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function buildProfessorStats(reviews) {
+  const stats = {};
+
+  for (const review of reviews) {
+    const pid = review.professorId;
+    if (!stats[pid]) {
+      stats[pid] = {
+        count: 0,
+        total: 0,
+      };
+    }
+
+    stats[pid].count += 1;
+    stats[pid].total += Number(review.rating || 0);
+  }
+
+  return stats;
+}
+
+function mergeProfessorStats(professors, reviews) {
+  const stats = buildProfessorStats(reviews);
+
+  return professors.map((prof) => {
+    const s = stats[prof.id];
+
+    if (!s) {
+      return {
+        ...prof,
+        avgRating: 0,
+        totalReviews: 0,
+      };
+    }
+
+    return {
+      ...prof,
+      avgRating: Number((s.total / s.count).toFixed(1)),
+      totalReviews: s.count,
+    };
+  });
+}
+
 function StarRating({ value, max = 5, size = 16, interactive = false, onChange }) {
   const [hover, setHover] = useState(0);
   return (
@@ -176,7 +217,7 @@ function Badge({ status }) {
 function ProfessorCard({ professor, onClick }) {
   const initials = getInitials(professor.name);
   const avatarColor = getAvatarColor(professor.name);
-  const ratingColor = professor.avgRating >= 4.5 ? COLORS.success : professor.avgRating >= 3.5 ? COLORS.warning : COLORS.red;
+  const ratingColor = liveAvgRating >= 4.5 ? COLORS.success : liveAvgRating >= 3.5 ? COLORS.warning : COLORS.red;
 
   return (
     <div onClick={onClick} style={{
@@ -195,7 +236,7 @@ function ProfessorCard({ professor, onClick }) {
           <div style={{ fontSize: 12, color: COLORS.red, fontWeight: 600, letterSpacing: "0.02em" }}>{professor.department}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
-          <span style={{ fontSize: 22, fontWeight: 800, color: ratingColor, fontFamily: "'DM Serif Display', Georgia, serif" }}>{professor.avgRating.toFixed(1)}</span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: ratingColor, fontFamily: "'DM Serif Display', Georgia, serif" }}>{liveAvgRating.toFixed(1)}</span>
           <StarRating value={Math.round(professor.avgRating)} size={11} />
         </div>
       </div>
@@ -205,7 +246,7 @@ function ProfessorCard({ professor, onClick }) {
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${COLORS.gray100}`, paddingTop: 12 }}>
-        <span style={{ fontSize: 12, color: COLORS.gray400 }}>{professor.totalReviews} reviews</span>
+        <span style={{ fontSize: 12, color: COLORS.gray400 }}>{liveTotalReviews} reviews</span>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, maxWidth: "65%" }}>
           {professor.courses.slice(0, 2).map(c => (
             <span key={c} style={{ fontSize: 11, color: COLORS.gray600, background: COLORS.gray50, borderRadius: 4, padding: "2px 7px" }}>{c}</span>
@@ -259,11 +300,12 @@ function Header({ page, setPage }) {
         style={{
           maxWidth: 1200,
           margin: "0 auto",
-          padding: "0 20px",
-          height: 60,
+          padding: "12px 16px",
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: 12,
         }}
       >
         <div
@@ -298,7 +340,15 @@ function Header({ page, setPage }) {
           </span>
         </div>
 
-        <nav style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <nav
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            alignItems: "center",
+            justifyContent: "flex-end",
+          }}
+        >
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -307,7 +357,7 @@ function Header({ page, setPage }) {
                 background: page === item.id ? COLORS.red : "transparent",
                 border: "none",
                 color: page === item.id ? COLORS.white : COLORS.gray400,
-                padding: "6px 16px",
+                padding: "8px 12px",
                 borderRadius: 8,
                 cursor: "pointer",
                 fontWeight: 600,
@@ -332,12 +382,12 @@ function Header({ page, setPage }) {
               background: COLORS.gold,
               border: "none",
               color: COLORS.navy,
-              padding: "6px 14px",
+              padding: "8px 12px",
               borderRadius: 8,
               cursor: "pointer",
               fontWeight: 700,
               fontSize: 13,
-              marginLeft: 8,
+              marginLeft: 0,
               fontFamily: "inherit",
             }}
           >
@@ -707,7 +757,7 @@ function ReviewForm({ professor, onSubmit, alreadyReviewed }) {
 }
 
 // ─── PROFESSOR PROFILE PAGE ────────────────────────────────────────────────────
-function ProfessorPage({ professor, professors, reviews, setPage, onAddReview }) {
+function ProfessorPage({ professor, reviews, setSelectedProfessor, setPage }) {
   const profReviews = reviews.filter(r => r.professorId === professor.id).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   const [reported, setReported] = useState({});
 
@@ -716,9 +766,26 @@ function ProfessorPage({ professor, professors, reviews, setPage, onAddReview })
   const reviewedKey = `ratemybau_reviewed_${professor.id}`;
   const alreadyReviewed = typeof localStorage !== "undefined" && localStorage.getItem(reviewedKey) === "1";
 
-  const handleAddReview = (reviewData) => {
-    onAddReview(reviewData);
-    if (typeof localStorage !== "undefined") localStorage.setItem(reviewedKey, "1");
+  const liveAvgRating = profReviews.length
+  ? Number(
+      (
+        profReviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) /
+        profReviews.length
+      ).toFixed(1)
+    )
+  : Number(professor.avgRating || 0);
+
+const liveTotalReviews = profReviews.length || professor.totalReviews || 0;
+
+  setReviews((prevReviews) => {
+    const updatedReviews = [newReview, ...prevReviews];
+  
+    setProfessors((prevProfessors) =>
+      mergeProfessorStats(prevProfessors, updatedReviews)
+    );
+  
+    return updatedReviews;
+  });
 
 
 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -769,7 +836,7 @@ function ProfessorPage({ professor, professors, reviews, setPage, onAddReview })
 
   const initials = getInitials(professor.name);
   const avatarColor = getAvatarColor(professor.name);
-  const ratingColor = professor.avgRating >= 4.5 ? COLORS.success : professor.avgRating >= 3.5 ? COLORS.warning : COLORS.red;
+  const ratingColor = liveAvgRating >= 4.5 ? COLORS.success : liveAvgRating >= 3.5 ? COLORS.warning : COLORS.red;
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px" }}>
@@ -830,9 +897,9 @@ function ProfessorPage({ professor, professors, reviews, setPage, onAddReview })
                 </div>
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 48, fontWeight: 900, color: ratingColor, fontFamily: "'DM Serif Display', Georgia, serif", lineHeight: 1 }}>{professor.avgRating.toFixed(1)}</div>
+                <div style={{ fontSize: 48, fontWeight: 900, color: ratingColor, fontFamily: "'DM Serif Display', Georgia, serif", lineHeight: 1 }}>{liveAvgRating.toFixed(1)}</div>
                 <StarRating value={Math.round(professor.avgRating)} size={18} />
-                <div style={{ fontSize: 12, color: COLORS.gray400, marginTop: 4 }}>{professor.totalReviews} reviews</div>
+                <div style={{ fontSize: 12, color: COLORS.gray400, marginTop: 4 }}>{liveTotalReviews} reviews</div>
               </div>
             </div>
 
@@ -907,7 +974,10 @@ function ProfessorPage({ professor, professors, reviews, setPage, onAddReview })
             <h3 style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 16, color: COLORS.gold, margin: "0 0 12px" }}>Other Professors</h3>
             {professors.filter(p => p.department === professor.department && p.id !== professor.id).slice(0, 3).map(p => (
               <div key={p.id} style={{ padding: "10px 0", borderBottom: `1px solid ${COLORS.navyLight}`, cursor: "pointer" }}
-                onClick={() => window.scrollTo(0, 0)}>
+              onClick={() => {
+                setPage("professor");
+                window.scrollTo(0, 0);
+              }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.white }}>{p.name}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                   <StarRating value={Math.round(p.avgRating)} size={11} />
@@ -929,7 +999,7 @@ function ProfessorPage({ professor, professors, reviews, setPage, onAddReview })
       </div>
     </div>
   );
-}
+
 
 // ─── SUGGESTIONS PAGE ─────────────────────────────────────────────────────────
 function SuggestionsPage({ suggestions, onAddSuggestion }) {
@@ -1263,7 +1333,6 @@ export default function Page() {
   	sourceUrl: p.source_url || null,
   	note: p.note || null,
       }));
-      setProfessors(formattedProfessors);
     }
 
     if (reviewsData) {
@@ -1297,6 +1366,47 @@ export default function Page() {
       }));
       setSuggestions(formattedSuggestions);
     }
+
+    if (reviewsData) {
+      const formattedReviews = reviewsData.map((r) => ({
+        id: r.id,
+        professorId: r.professor_id,
+        rating: r.rating,
+        teachingQuality: r.teaching_quality,
+        clarity: r.clarity,
+        fairness: r.fairness,
+        difficulty: r.difficulty,
+        wouldTakeAgain: r.would_take_again,
+        course: r.course,
+        semester: r.semester,
+        comment: r.comment,
+        timestamp: r.created_at,
+      }));
+    
+      setReviews(formattedReviews);
+    
+      if (professorsData) {
+        const formattedProfessors = professorsData.map((p) => ({
+          id: p.id,
+          name: p.full_name,
+          department: p.department,
+          courses: p.courses || [],
+          avgRating: Number(p.avg_rating || 0),
+          totalReviews: p.total_reviews || 0,
+          image: p.image_url || null,
+          tags: p.tags || [],
+          title: p.academic_title || null,
+          faculty: p.faculty || null,
+          email: p.email || null,
+          profileUrl: p.profile_url || null,
+          sourceUrl: p.source_url || null,
+          note: p.note || null,
+        }));
+    
+        setProfessors(mergeProfessorStats(formattedProfessors, formattedReviews));
+      }
+    }
+
   };
 
   loadData();
@@ -1408,7 +1518,14 @@ export default function Page() {
         {page === "professor" && currentProfessor && (
           <ProfessorPage professor={currentProfessor} professors={professors} reviews={reviews} setPage={setPage} onAddReview={handleAddReview} />
         )}
-        {page === "suggestions" && <SuggestionsPage suggestions={suggestions} onAddSuggestion={handleAddSuggestion} />}
+        {page === "professor" && (
+      <ProfessorPage
+        professor={selectedProfessor}
+        reviews={reviews}
+        setSelectedProfessor={setSelectedProfessor}
+        setPage={setPage}
+      />
+      )}
       </main>
       <Footer setPage={setPage} />
       <FAB setPage={setPage} page={page} />
