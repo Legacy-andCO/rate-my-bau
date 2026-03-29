@@ -50,7 +50,8 @@ export default function PrivacyPage() {
       <p>We may update this Privacy Policy at any time. Continued use of the platform means you accept the updated policy.</p>
 
       <h2>7. Contact</h2>
-      <p>For questions, contact: [your email]</p>
+      <p>For questions, contact: ratemybau@gmail.com
+</p>
     </main>
   );
 }
