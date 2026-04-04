@@ -196,21 +196,26 @@ function ProfessorCard({ professor, onClick }) {
   const avatarColor = getAvatarColor(professor.name);
   const liveAvgRating = Number(professor.avgRating || 0);
   const liveTotalReviews = Number(professor.totalReviews || 0);
-  const ratingColor = liveAvgRating >= 4.5 ? COLORS.success : liveAvgRating >= 3.5 ? COLORS.warning : COLORS.red;
+  const ratingColor =
+    liveAvgRating >= 4.5
+      ? COLORS.success
+      : liveAvgRating >= 3.5
+      ? COLORS.warning
+      : COLORS.red;
+
+  const [imgError, setImgError] = useState(false);
+  const hasImage = professor.image_url && !imgError;
 
   return (
     <div
       onClick={onClick}
       style={{
         background: COLORS.white,
-        borderRadius: 16,
-        padding: "20px 22px",
+        border: `1px solid ${COLORS.gray100}`,
+        borderRadius: 18,
+        padding: 18,
         cursor: "pointer",
-        border: `1.5px solid ${COLORS.gray100}`,
         transition: "all 0.2s ease",
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = COLORS.navyLight;
@@ -223,31 +228,119 @@ function ProfessorCard({ professor, onClick }) {
         e.currentTarget.style.transform = "none";
       }}
     >
-      <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: avatarColor.bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: avatarColor.text, flexShrink: 0, fontFamily: "'DM Serif Display', Georgia, serif" }}>
-          {initials}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: COLORS.navy, marginBottom: 4, fontFamily: "'DM Serif Display', Georgia, serif" }}>{professor.name}</div>
-          <div style={{ fontSize: 12, color: COLORS.red, fontWeight: 600, letterSpacing: "0.02em" }}>{professor.department}</div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
-          <span style={{ fontSize: 22, fontWeight: 800, color: ratingColor, fontFamily: "'DM Serif Display', Georgia, serif" }}>{liveAvgRating.toFixed(1)}</span>
-          <StarRating value={Math.round(liveAvgRating)} size={11} />
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+        {hasImage ? (
+          <img
+            src={professor.image_url}
+            alt={professor.name}
+            onError={() => setImgError(true)}
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: `2px solid ${COLORS.gray100}`,
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              background: avatarColor.bg,
+              color: avatarColor.text,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 800,
+              fontSize: 18,
+              flexShrink: 0,
+            }}
+          >
+            {initials}
+          </div>
+        )}
+
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: 16,
+              color: COLORS.navy,
+              marginBottom: 4,
+            }}
+          >
+            {professor.name}
+          </div>
+
+          <div
+            style={{
+              fontSize: 13,
+              color: COLORS.gray600,
+            }}
+          >
+            {professor.department}
+          </div>
         </div>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          background: "#f8fafc",
+          borderRadius: 999,
+          padding: "6px 10px",
+          marginBottom: 12,
+          color: ratingColor,
+          fontWeight: 700,
+          fontSize: 13,
+        }}
+      >
+        <span>{liveAvgRating.toFixed(1)}</span>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         {(professor.tags || []).map((tag) => (
-          <span key={tag} style={{ fontSize: 11, color: COLORS.navyLight, background: COLORS.gray50, border: `1px solid ${COLORS.gray100}`, borderRadius: 20, padding: "2px 10px" }}>{tag}</span>
+          <span
+            key={tag}
+            style={{
+              background: COLORS.gray50,
+              color: COLORS.gray600,
+              padding: "6px 10px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {tag}
+          </span>
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${COLORS.gray100}`, paddingTop: 12 }}>
-        <span style={{ fontSize: 12, color: COLORS.gray400 }}>{liveTotalReviews} reviews</span>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, maxWidth: "65%" }}>
-          {(professor.courses || []).slice(0, 2).map((c) => (
-            <span key={c} style={{ fontSize: 11, color: COLORS.gray600, background: COLORS.gray50, borderRadius: 4, padding: "2px 7px" }}>{c}</span>
-          ))}
-        </div>
+
+      <div style={{ fontSize: 13, color: COLORS.gray600, marginBottom: 10 }}>
+        {liveTotalReviews} reviews
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {(professor.courses || []).slice(0, 2).map((c) => (
+          <span
+            key={c}
+            style={{
+              background: COLORS.infoBg,
+              color: COLORS.info,
+              padding: "6px 10px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {c}
+          </span>
+        ))}
       </div>
     </div>
   );
