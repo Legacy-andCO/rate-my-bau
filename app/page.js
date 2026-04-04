@@ -204,7 +204,7 @@ function ProfessorCard({ professor, onClick }) {
       : COLORS.red;
 
   const [imgError, setImgError] = useState(false);
-  const hasImage = professor.image_url && !imgError;
+  const hasImage = professor.image && !imgError;
 
   return (
     <div
@@ -231,7 +231,7 @@ function ProfessorCard({ professor, onClick }) {
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
         {hasImage ? (
           <img
-            src={professor.image_url}
+            src={professor.image}
             alt={professor.name}
             onError={() => setImgError(true)}
             style={{
