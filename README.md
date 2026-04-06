@@ -1,36 +1,119 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BauPOS - Production-Oriented Restaurant POS Platform
 
-## Getting Started
+BauPOS is a **Windows-first restaurant operations platform** built with Next.js + Supabase and structured for commercial evolution (multi-branch, delivery integrations, mobile manager app, AI analytics assistant).
 
-First, run the development server:
+> This repository delivers a **Stage 1 production-ready foundation** with clean architecture boundaries and a modern POS UI/UX, not a throwaway student demo.
+
+## Stack
+
+- Front end: Next.js 16 (App Router), React 19
+- Data/Auth: Supabase (PostgreSQL + Auth)
+- Styling: custom modern design system in `app/globals.css`
+- Money logic: integer cents-based helpers (no float arithmetic for totals/change)
+
+## Architecture (Extensible by Design)
+
+### Layers
+
+- **UI Layer**: `src/modules/pos/components/`
+- **Business Logic / Service Layer**: `src/modules/pos/services/`
+- **Auth & Permissions Layer**: `src/modules/auth/`
+- **Data Source / Mock Seed Layer**: `src/data/mock/`
+- **Platform Helpers**: `src/lib/` and `lib/supabase.js`
+
+This separation prevents business logic from being hardcoded into UI and allows migration toward a custom API gateway later without rewriting core UI flows.
+
+### Current Screens (Connected)
+
+1. Cashier POS
+2. Manager Dashboard
+3. Inventory
+4. Menu Management
+5. Employee Attendance
+6. Reports
+7. Settings
+
+## Critical Cash Workflow (Implemented)
+
+Cash payment panel includes:
+- Amount Due
+- Money Received
+- Change to Return
+- Validation to block completion when money received < amount due
+- Quick cash shortcut buttons
+
+Formula:
+`Change = Money Received - Amount Due`
+
+Implemented in: `src/modules/pos/services/orderService.js` and used in cashier UI.
+
+## Supabase Schema / Migrations
+
+- Main schema: `supabase/migrations/20260406_pos_schema.sql`
+- Seed starter data: `supabase/seed/seed.sql`
+
+Schema includes core operational tables and future-ready placeholders for:
+- Delivery integrations (Yemeksepeti / Trendyol Go style ingestion)
+- AI query logs
+- Mobile manager sessions
+- Forecasting
+- Accountant export records
+- Branch-specific pricing
+
+## Setup
+
+1. Install deps:
+   ```bash
+   npm install
+   ```
+2. Copy env template:
+   ```bash
+   cp .env.example .env.local
+   ```
+3. Fill Supabase variables in `.env.local`.
+4. Run database migration SQL and seed SQL in your Supabase SQL editor.
+5. Start app:
+   ```bash
+   npm run dev
+   ```
+
+## Build / Production
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+For Windows deployment, package this front-end into a desktop shell (e.g. Electron/Tauri) while keeping services and schema unchanged.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Future Integration Hooks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Delivery platforms
+- `orders.external_order_id`
+- `orders.external_source`
+- `orders.order_sync_status`
+- `delivery_integrations`
+- `external_delivery_orders`
+- `webhook_logs`
 
-## Learn More
+### AI assistant
+Service helper surface (already created):
+- `getSalesToday`
+- `getTopSellingItems`
+- `getLeastSellingItems`
+- `getHourlySales`
+- `getInventoryAlerts`
+- `getWeeklySalesComparison`
 
-To learn more about Next.js, take a look at the following resources:
+### Mobile manager app
+- Reporting and summaries are exposed through reusable services now.
+- `mobile_device_sessions` and `notification_logs` tables are prepared.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Accounting automation
+- `daily_summaries`, `expenses`, `purchase_entries`, `accountant_exports` are in schema.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Notes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Replace mock seed data in `src/data/mock/seedData.js` with repository + Supabase queries incrementally.
+- Add RLS policies per role as next hardening step.
+- Add receipt printer service adapter in a dedicated infra module (already isolated by architecture direction).

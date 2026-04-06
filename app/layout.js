@@ -1,6 +1,8 @@
+import "./globals.css";
+
 export const metadata = {
-  title: "Rate My BAU",
-  description: "Anonymous professor reviews",
+  title: "BauPOS | Restaurant Platform",
+  description: "Production-oriented restaurant POS and operations platform",
 };
 
 export default function RootLayout({ children }) {
